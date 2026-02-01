@@ -1,225 +1,192 @@
-import tkinter as tk
-from tkinter import messagebox, ttk, simpledialog
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+                             QLabel, QLineEdit, QComboBox, QPushButton, QTreeWidget, 
+                             QTreeWidgetItem, QHeaderView, QMessageBox, QInputDialog, QFrame, QTabWidget)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QBrush, QFont
 from datetime import datetime
 from database import DatabaseManager
+from details_window import OgrenciDetayPenceresi
+from finance_window import FinansWidget
 
-class GitarTakipApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("BerkayShred - Stüdyo Yönetim v3.0")
-        self.root.geometry("950x700")
-        
-        self.style = ttk.Style()
-        self.style.theme_use('clam') # 'alt', 'default', 'classic' 
-        
-        self.style.configure("Treeview", 
-                             background="white",
-                             foreground="black", 
-                             rowheight=25,
-                             fieldbackground="white",
-                             font=('Calibri', 11))
-        self.style.configure("Treeview.Heading", font=('Calibri', 11, 'bold'), background="#E0E0E0")
-        
+class GitarTakipApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("BerkayShred - Studio Pro")
+        self.resize(1150, 800)
         self.db = DatabaseManager()
-        self.arayuz_olustur()
-        self.listele()
 
-    def arayuz_olustur(self):
-        main_frame = tk.Frame(self.root, padx=20, pady=20)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.tabs = QTabWidget()
+        self.setCentralWidget(self.tabs)
 
-        frame_yonetim = tk.LabelFrame(main_frame, text="Öğrenci Yönetimi", font=('Arial', 10, 'bold'), padx=10, pady=10)
-        frame_yonetim.pack(fill="x", pady=(0, 15))
+        self.tab_ogrenci = QWidget()
+        self.setup_ogrenci_tab()
+        self.tabs.addTab(self.tab_ogrenci, "👥 Öğrenci Yönetimi")
 
-        tk.Label(frame_yonetim, text="Öğrenci Adı:").grid(row=0, column=0, padx=5, sticky="e")
-        self.ent_isim = tk.Entry(frame_yonetim, width=20)
-        self.ent_isim.grid(row=0, column=1, padx=5)
+        self.finans_widget = FinansWidget(self.db, self.detay_ac_id_ile) 
+        self.tabs.addTab(self.finans_widget, "📊 Finans Dashboard")
         
-        tk.Label(frame_yonetim, text="Gitar:").grid(row=0, column=2, padx=5, sticky="e")
-        self.combo_tur = ttk.Combobox(frame_yonetim, values=["Klasik", "Akustik", "Elektro", "Bas"], width=10, state="readonly")
-        self.combo_tur.current(0)
-        self.combo_tur.grid(row=0, column=3, padx=5)
-        
-        tk.Label(frame_yonetim, text="Mod:").grid(row=0, column=4, padx=5, sticky="e")
-        self.combo_mod = ttk.Combobox(frame_yonetim, values=["Yüzyüze", "Online"], width=10, state="readonly")
-        self.combo_mod.current(0)
-        self.combo_mod.grid(row=0, column=5, padx=5)
-        
-        btn_ekle = tk.Button(frame_yonetim, text="💾 Kaydet", command=self.ogrenci_ekle_ui, bg="#4CAF50", fg="white", font=('Arial', 9, 'bold'), padx=10)
-        btn_ekle.grid(row=0, column=6, padx=10)
-        
-        btn_guncelle = tk.Button(frame_yonetim, text="✏️ Güncelle", command=self.ogrenci_guncelle_ui, bg="#FFC107", fg="black", font=('Arial', 9), padx=5)
-        btn_guncelle.grid(row=0, column=7, padx=5)
+        self.tabs.currentChanged.connect(self.sekme_degisti)
+        self.listele_ve_guncelle()
 
-        frame_islem = tk.Frame(main_frame)
-        frame_islem.pack(fill="x", pady=5)
-        
-        tk.Button(frame_islem, text="🎸 DERS İŞLENDİ (-1)", command=lambda: self.islem_yap_ui("Ders"), 
-                  bg="#FF9800", fg="black", font=('Arial', 10, 'bold'), height=2, width=20).pack(side=tk.LEFT, padx=(0,10))
-                  
-        tk.Button(frame_islem, text="💰 ÖDEME ALINDI (+4)", command=lambda: self.islem_yap_ui("Odeme"), 
-                  bg="#2196F3", fg="white", font=('Arial', 10, 'bold'), height=2, width=20).pack(side=tk.LEFT, padx=10)
-        
-        frame_araclar = tk.Frame(frame_islem)
-        frame_araclar.pack(side=tk.RIGHT)
-        
-        tk.Button(frame_araclar, text="📜 Geçmiş / Düzelt", command=self.gecmis_goster_ui, bg="#607D8B", fg="white", width=15).pack(side=tk.TOP, pady=2)
-        tk.Button(frame_araclar, text="❌ Öğrenci Sil", command=self.ogrenci_sil_ui, bg="#D32F2F", fg="white", width=15).pack(side=tk.TOP, pady=2)
+    def setup_ogrenci_tab(self):
+        layout = QVBoxLayout(self.tab_ogrenci)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-        frame_liste = tk.Frame(main_frame)
-        frame_liste.pack(fill=tk.BOTH, expand=True, pady=10)
-
-        scrollbar = ttk.Scrollbar(frame_liste)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.tree = ttk.Treeview(frame_liste, columns=("ID", "İsim", "Gitar Türü", "Ders Türü", "Kalan Ders"), 
-                                 show='headings', height=15, yscrollcommand=scrollbar.set)
+        form_frame = QFrame()
+        form_frame.setStyleSheet("background-color: #2b2b2b; border-radius: 8px; border: 1px solid #3d3d3d;")
+        form_layout = QHBoxLayout(form_frame)
         
-        scrollbar.config(command=self.tree.yview)
+        self.input_isim = QLineEdit()
+        self.input_isim.setPlaceholderText("Ad Soyad Giriniz...")
+        self.input_isim.setMinimumWidth(200)
         
-        self.tree.tag_configure('borclu', background='#ffcccc') 
-        self.tree.tag_configure('sinirda', background='#fff4cc') 
-        self.tree.tag_configure('zengin', background='#e8f5e9') 
-        self.tree.tag_configure('normal', background='white')
+        self.combo_gitar = QComboBox()
+        self.combo_gitar.addItems(["Elektro Gitar", "Klasik Gitar", "Akustik Gitar", "Bas Gitar"])
+        
+        self.combo_mod = QComboBox()
+        self.combo_mod.addItems(["Yüzyüze", "Online"])
+        
+        btn_ekle = QPushButton("💾 Yeni Kayıt")
+        btn_ekle.setObjectName("btn_success")
+        btn_ekle.clicked.connect(self.ogrenci_ekle)
+        
+        btn_guncelle = QPushButton("✏️ Düzenle")
+        btn_guncelle.setObjectName("btn_warning")
+        btn_guncelle.clicked.connect(self.ogrenci_guncelle)
 
-        headers = ["ID", "İsim", "Gitar Türü", "Ders Türü", "Kalan Ders"]
-        widths = [40, 250, 120, 120, 100]
-        
-        for i, col in enumerate(headers):
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=widths[i], anchor="center")
-            
-        self.tree.pack(fill=tk.BOTH, expand=True)
-        self.tree.bind("<<TreeviewSelect>>", self.satir_secildi)
+        form_layout.addWidget(QLabel("Öğrenci:"))
+        form_layout.addWidget(self.input_isim)
+        form_layout.addWidget(self.combo_gitar)
+        form_layout.addWidget(self.combo_mod)
+        form_layout.addWidget(btn_ekle)
+        form_layout.addWidget(btn_guncelle)
+        layout.addWidget(form_frame)
 
-    def listele(self):
-        for i in self.tree.get_children():
-            self.tree.delete(i)
+        action_layout = QHBoxLayout()
+        btn_ders = QPushButton("🎸 DERS İŞLENDİ (-1)")
+        btn_ders.setMinimumHeight(55)
+        btn_ders.setObjectName("btn_info")
+        btn_ders.clicked.connect(lambda: self.islem_yap("Ders"))
         
+        btn_odeme = QPushButton("💰 ÖDEME ALINDI (+4)")
+        btn_odeme.setMinimumHeight(55)
+        btn_odeme.setObjectName("btn_success")
+        btn_odeme.clicked.connect(lambda: self.islem_yap("Odeme"))
+        
+        btn_detay = QPushButton("📜 Detaylar")
+        btn_detay.setMinimumHeight(55)
+        btn_detay.clicked.connect(self.detay_ac)
+        
+        btn_sil = QPushButton("🗑️ Sil")
+        btn_sil.setMinimumHeight(55)
+        btn_sil.setObjectName("btn_danger")
+        btn_sil.clicked.connect(self.ogrenci_sil)
+
+        action_layout.addWidget(btn_ders, 2)
+        action_layout.addWidget(btn_odeme, 2)
+        action_layout.addWidget(btn_detay, 1)
+        action_layout.addWidget(btn_sil, 1)
+        layout.addLayout(action_layout)
+
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["ID", "İsim", "Enstrüman", "Mod", "Kalan Ders"])
+        self.tree.header().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.tree.setAlternatingRowColors(True)
+        self.tree.itemClicked.connect(self.satir_secildi)
+        self.tree.itemDoubleClicked.connect(self.detay_ac)
+        layout.addWidget(self.tree)
+
+    def listele_ve_guncelle(self):
+        self.tree.clear()
         veriler = self.db.ogrencileri_getir()
         for row in veriler:
-            kalan_ders = row[4]
-            if kalan_ders <= 0: etiket = 'borclu'
-            elif kalan_ders == 1: etiket = 'sinirda'
-            elif kalan_ders >= 4: etiket = 'zengin'
-            else: etiket = 'normal'
-                
-            self.tree.insert("", "end", values=row, tags=(etiket,))
+            item = QTreeWidgetItem([str(row[0]), row[1], row[2], row[3], str(row[4])])
+            kalan = row[4]
+            if kalan <= 0:
+                item.setForeground(4, QBrush(QColor("#ff5252")))
+                item.setFont(4, QFont("Segoe UI", 9, QFont.Weight.Bold))
+            elif kalan == 1:
+                item.setForeground(4, QBrush(QColor("#ffb74d")))
+            elif kalan >= 4:
+                item.setForeground(4, QBrush(QColor("#69f0ae")))
+            self.tree.addTopLevelItem(item)
+        
+        self.finans_widget.ogrenci_listesini_yenile()
+        self.finans_widget.verileri_guncelle()
 
-    def satir_secildi(self, event):
-        selected = self.tree.selection()
-        if selected:
-            values = self.tree.item(selected)['values']
-            self.ent_isim.delete(0, tk.END)
-            self.ent_isim.insert(0, values[1])
-            self.combo_tur.set(values[2])
-            self.combo_mod.set(values[3])
+    def sekme_degisti(self, index):
+        if index == 1:
+            self.finans_widget.verileri_guncelle()
 
-    def ogrenci_ekle_ui(self):
-        isim = self.ent_isim.get()
-        if isim:
-            self.db.ogrenci_ekle(isim, self.combo_tur.get(), self.combo_mod.get())
-            self.ent_isim.delete(0, tk.END)
-            self.listele()
-        else:
-            messagebox.showwarning("Hata", "İsim boş olamaz.")
+    def satir_secildi(self, item, col):
+        self.input_isim.setText(item.text(1))
+        self.combo_gitar.setCurrentText(item.text(2))
+        self.combo_mod.setCurrentText(item.text(3))
 
-    def ogrenci_guncelle_ui(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Hata", "Güncellemek için seçim yapın.")
+    def ogrenci_ekle(self):
+        isim = self.input_isim.text()
+        if not isim: return
+        self.db.ogrenci_ekle(isim, self.combo_gitar.currentText(), self.combo_mod.currentText())
+        self.input_isim.clear()
+        self.listele_ve_guncelle()
+
+    def ogrenci_guncelle(self):
+        item = self.tree.currentItem()
+        if not item: return
+        uid = int(item.text(0))
+        mevcut = self.db.ogrenci_bilgi_getir(uid)
+        self.db.ogrenci_guncelle(uid, self.input_isim.text(), self.combo_gitar.currentText(), 
+                                 self.combo_mod.currentText(), mevcut[5], mevcut[6], mevcut[7])
+        self.listele_ve_guncelle()
+
+    def islem_yap(self, tip):
+        item = self.tree.currentItem()
+        if not item:
+            QMessageBox.warning(self, "Uyarı", "Lütfen listeden bir öğrenci seçin!")
             return
-        uid = self.tree.item(selected)['values'][0]
-        self.db.ogrenci_guncelle(uid, self.ent_isim.get(), self.combo_tur.get(), self.combo_mod.get())
-        self.listele()
-        messagebox.showinfo("Bilgi", "Güncellendi.")
-
-    def islem_yap_ui(self, islem_tipi):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Uyarı", "Lütfen öğrenci seçin!")
-            return
-
-        ogrenci_id = self.tree.item(selected)['values'][0]
-        ogrenci_isim = self.tree.item(selected)['values'][1]
+            
+        uid = int(item.text(0))
         simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
         
-        if islem_tipi == "Ders":
-            varsayilan = "Ders İşlendi"
-        else:
-            varsayilan = "Ödeme Alındı (+4)"
-
-        not_text = simpledialog.askstring("Not", f"{islem_tipi} notu (Opsiyonel):", initialvalue="")
-        if not_text is None: return 
+        tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
+        if not ok1: return
         
-        final_not = f"{varsayilan} - {not_text}" if not_text else varsayilan
-        self.db.islem_yap(ogrenci_id, islem_tipi, simdi, final_not)
-        self.listele()
-        messagebox.showinfo("Başarılı", f"{ogrenci_isim} işlendi.")
-
-    def gecmis_goster_ui(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Uyarı", "Geçmiş için öğrenci seçin!")
-            return
-            
-        ogrenci_id = self.tree.item(selected)['values'][0]
-        ogrenci_isim = self.tree.item(selected)['values'][1]
+        tutar = 0
+        if tip == "Odeme":
+            tutar_str, ok_tutar = QInputDialog.getText(self, "Tutar", "Alınan Miktar (TL):", text="0")
+            if ok_tutar and tutar_str:
+                try:
+                    tutar = float(tutar_str)
+                except ValueError:
+                    tutar = 0
         
-        top = tk.Toplevel(self.root)
-        top.title(f"Detaylar: {ogrenci_isim}")
-        top.geometry("700x450")
+        not_mesaji, ok2 = QInputDialog.getText(self, "Not", f"{tip} Notu (Opsiyonel):")
+        if not ok2: return 
         
-        lbl_info = tk.Label(top, text="Hatalı işlemleri silmek için satırı seçip aşağıdaki butona basın.", 
-                            fg="gray", font=("Arial", 9, "italic"))
-        lbl_info.pack(pady=5)
+        final_not = f"{'Ders İşlendi' if tip == 'Ders' else 'Ödeme Alındı'} - {not_mesaji}"
         
-        cols = ("RefID", "Tarih", "İşlem", "Detay")
-        tree_gecmis = ttk.Treeview(top, columns=cols, show='headings', height=12)
+        self.db.islem_yap(uid, tip, tarih, final_not, tutar)
+        self.listele_ve_guncelle()
         
-        tree_gecmis.heading("RefID", text="Ref") 
-        tree_gecmis.heading("Tarih", text="Tarih")
-        tree_gecmis.heading("İşlem", text="İşlem")
-        tree_gecmis.heading("Detay", text="Notlar")
-        
-        tree_gecmis.column("RefID", width=40, anchor="center")
-        tree_gecmis.column("Tarih", width=130, anchor="center")
-        tree_gecmis.column("İşlem", width=100, anchor="center")
-        tree_gecmis.column("Detay", width=350)
-        
-        tree_gecmis.pack(fill=tk.BOTH, expand=True, padx=10)
+        QMessageBox.information(self, "Kayıt", f"{tip} işlemi kaydedildi.\nTutar: {tutar} TL")
 
-        def gecmis_yenile():
-            for i in tree_gecmis.get_children(): tree_gecmis.delete(i)
-            rows = self.db.gecmis_getir(ogrenci_id)
-            for row in rows:
-                tree_gecmis.insert("", "end", values=row)
+    def detay_ac(self):
+        item = self.tree.currentItem()
+        if not item: return
+        uid = int(item.text(0))
+        self.detay_window = OgrenciDetayPenceresi(uid, self.db, self.listele_ve_guncelle)
+        self.detay_window.show()
 
-        gecmis_yenile()
+    def detay_ac_id_ile(self, uid):
+        """Finans sayfasından ID ile detay açmak için"""
+        self.detay_window = OgrenciDetayPenceresi(uid, self.db, self.listele_ve_guncelle)
+        self.detay_window.show()
 
-        def secili_islemi_sil():
-            selected_item = tree_gecmis.selection()
-            if not selected_item:
-                messagebox.showwarning("Uyarı", "Silinecek işlemi seçmelisiniz!")
-                return
-            
-            degerler = tree_gecmis.item(selected_item)['values']
-            islem_id = degerler[0] 
-            islem_tipi = degerler[2]
-            
-            if messagebox.askyesno("İptal Et", f"Bu '{islem_tipi}' işlemini silip, bakiyeyi geri almak istiyor musunuz?"):
-                self.db.islem_sil(islem_id)
-                gecmis_yenile() 
-                self.listele()  
-                messagebox.showinfo("Başarılı", "İşlem geri alındı.")
-
-        btn_sil = tk.Button(top, text="🗑️ Seçili İşlemi Geri Al (Sil)", command=secili_islemi_sil, bg="#e53935", fg="white", font=('Arial', 10, 'bold'))
-        btn_sil.pack(pady=10)
-
-    def ogrenci_sil_ui(self):
-        selected = self.tree.selection()
-        if selected:
-            if messagebox.askyesno("Sil", "Öğrenciyi silmek istediğine emin misin?"):
-                ogrenci_id = self.tree.item(selected)['values'][0]
-                self.db.ogrenci_sil(ogrenci_id)
-                self.listele()
+    def ogrenci_sil(self):
+        item = self.tree.currentItem()
+        if not item: return
+        if QMessageBox.question(self, "Sil", "Emin misin?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+            self.db.ogrenci_sil(int(item.text(0)))
+            self.listele_ve_guncelle()
