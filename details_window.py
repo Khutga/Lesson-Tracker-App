@@ -68,11 +68,16 @@ class OgrenciDetayPenceresi(QWidget):
         layout.addWidget(kart_frame)
         
         filter_row = QHBoxLayout()
-        filter_row.addWidget(QLabel("İşlem Geçmişi:"))
+        filter_row.addWidget(QLabel("İşlem Geçmişi (Ay):"))
         
         self.combo_filter = QComboBox()
-        self.combo_filter.addItems(["Tümü", "Sadece Dersler", "Sadece Ödemeler"])
-        self.combo_filter.currentIndexChanged.connect(self.gecmis_yukle)
+        self.combo_filter.addItem("Tüm Aylar", "Tümü")
+        aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", 
+                 "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+        
+        for i, ay in enumerate(aylar, 1):
+            self.combo_filter.addItem(ay, f"{i:02d}")
+            
         filter_row.addWidget(self.combo_filter)
         filter_row.addStretch()
         
@@ -90,34 +95,9 @@ class OgrenciDetayPenceresi(QWidget):
         btn_sil.clicked.connect(self.islem_sil)
         layout.addWidget(btn_sil)
         
+        self.combo_filter.currentIndexChanged.connect(self.gecmis_yukle)
         self.gecmis_yukle()
 
-    def gecmis_yukle(self):
-        self.tree_gecmis.clear()
-        secilen_filtre = self.combo_filter.currentText()
-        
-        veriler = self.db.gecmis_getir(self.uid, secilen_filtre)
-        for row in veriler:
-            tutar_str = f"{row[4]} TL" if row[4] > 0 else "-"
-            QTreeWidgetItem(self.tree_gecmis, [str(row[0]), row[1], row[2], row[3], tutar_str])
-
-    def detay_kaydet(self):
-        self.db.ogrenci_guncelle(self.uid, self.ogrenci_bilgi[1], self.ogrenci_bilgi[2], self.ogrenci_bilgi[3],
-                                 self.input_yas.text(), self.input_tecrube.text(), self.input_hedef.text())
-        self.callback()
-        QMessageBox.information(self, "Bilgi", "Kaydedildi.")
-
-    def islem_sil(self):
-        item = self.tree_gecmis.currentItem()
-        if not item: return
-        if QMessageBox.question(self, "Sil", "Silinsin mi?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-            self.db.islem_sil(int(item.text(0)))
-            self.gecmis_yukle()
-            self.callback()
-
-    def setup_repertuvar_tab(self):
-        pass
-    
     def setup_repertuvar_tab(self):
         layout = QVBoxLayout(self.tab_repertuvar)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -127,7 +107,7 @@ class OgrenciDetayPenceresi(QWidget):
         self.input_sarki.setPlaceholderText("Yeni Şarkı Adı...")
         
         btn_ekle = QPushButton("➕ Ekle")
-        btn_ekle.setObjectName("btn_save") 
+        btn_ekle.setObjectName("btn_success") 
         btn_ekle.clicked.connect(self.sarki_ekle)
         
         input_row.addWidget(self.input_sarki)
@@ -142,7 +122,7 @@ class OgrenciDetayPenceresi(QWidget):
         layout.addWidget(self.tree_rep)
         
         btn_rep_sil = QPushButton("Seçili Şarkıyı Sil")
-        btn_rep_sil.setObjectName("btn_delete")
+        btn_rep_sil.setObjectName("btn_danger")
         btn_rep_sil.clicked.connect(self.sarki_sil)
         layout.addWidget(btn_rep_sil)
         
@@ -150,21 +130,33 @@ class OgrenciDetayPenceresi(QWidget):
 
     def gecmis_yukle(self):
         self.tree_gecmis.clear()
-        veriler = self.db.gecmis_getir(self.uid)
+        secilen_ay_kodu = self.combo_filter.currentData()
+        
+        veriler = self.db.gecmis_getir(self.uid, secilen_ay_kodu)
+        
         for row in veriler:
-            QTreeWidgetItem(self.tree_gecmis, [str(row[0]), row[1], row[2], row[3]])
+            tutar_degeri = row[4] if row[4] else 0
+            tutar_str = f"{tutar_degeri} TL" if tutar_degeri > 0 else "-"
+            
+            item = QTreeWidgetItem(self.tree_gecmis, [str(row[0]), row[1], row[2], row[3], tutar_str])
+            
+            if row[2] == "Odeme":
+                item.setForeground(2, QBrush(QColor("#69f0ae"))) 
+            elif row[2] == "Ders":
+                item.setForeground(2, QBrush(QColor("#40a7e3"))) 
 
     def detay_kaydet(self):
         self.db.ogrenci_guncelle(self.uid, self.ogrenci_bilgi[1], self.ogrenci_bilgi[2], self.ogrenci_bilgi[3],
                                  self.input_yas.text(), self.input_tecrube.text(), self.input_hedef.text())
         self.ogrenci_bilgi = self.db.ogrenci_bilgi_getir(self.uid)
         self.callback()
-        QMessageBox.information(self, "Bilgi", "Kaydedildi.")
+        QMessageBox.information(self, "Bilgi", "Bilgiler güncellendi.")
 
     def islem_sil(self):
         item = self.tree_gecmis.currentItem()
         if not item: return
-        if QMessageBox.question(self, "Sil", "Silinsin mi?") == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, "Sil", "Bu işlemi silmek istediğinize emin misiniz?", 
+                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             self.db.islem_sil(int(item.text(0)))
             self.gecmis_yukle()
             self.callback()
@@ -178,7 +170,7 @@ class OgrenciDetayPenceresi(QWidget):
                 item.setForeground(2, QBrush(QColor("#69f0ae")))
             else:
                 item.setForeground(2, QBrush(QColor("#ffb74d")))
-                
+
     def sarki_ekle(self):
         sarki = self.input_sarki.text()
         if sarki:
@@ -195,5 +187,7 @@ class OgrenciDetayPenceresi(QWidget):
     def sarki_sil(self):
         item = self.tree_rep.currentItem()
         if not item: return
-        self.db.repertuvar_sil(int(item.text(0)))
-        self.repertuvar_yukle()
+        if QMessageBox.question(self, "Sil", "Şarkıyı silmek istediğinize emin misiniz?",
+                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+            self.db.repertuvar_sil(int(item.text(0)))
+            self.repertuvar_yukle()

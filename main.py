@@ -68,7 +68,6 @@ QLineEdit:focus, QComboBox:focus {
     background-color: #333;
 }
 
-/* --- Liste --- */
 QTreeWidget, QTableWidget {
     background-color: #2b2b2b;
     border: 1px solid #444;

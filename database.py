@@ -100,18 +100,15 @@ class DatabaseManager:
                 return True
             return False
 
-    def gecmis_getir(self, ogrenci_id, filtre_tipi="Tümü"):
-        """Detay sayfasında filtreleme için güncellendi"""
+    def gecmis_getir(self, ogrenci_id, filtre_ay="Tümü"):
         with self.baglan() as conn:
             c = conn.cursor()
             query = "SELECT id, tarih, islem_tipi, notlar, tutar FROM gecmis WHERE ogrenci_id=?"
             params = [ogrenci_id]
             
-            if filtre_tipi != "Tümü":
-                if filtre_tipi == "Sadece Dersler":
-                    query += " AND islem_tipi = 'Ders'"
-                elif filtre_tipi == "Sadece Ödemeler":
-                    query += " AND islem_tipi = 'Odeme'"
+            if filtre_ay and filtre_ay != "Tümü":
+                query += " AND tarih LIKE ?"
+                params.append(f"%.{filtre_ay}.%")
             
             query += " ORDER BY id DESC"
             c.execute(query, params)
