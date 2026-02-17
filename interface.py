@@ -1,9 +1,9 @@
-import shutil  
-import os      
+import shutil
+import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QLineEdit, QComboBox, QPushButton, QTreeWidget,
                              QTreeWidgetItem, QHeaderView, QMessageBox, QInputDialog,
-                             QFrame, QTabWidget, QFileDialog) 
+                             QFrame, QTabWidget, QFileDialog)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QBrush, QFont
 from datetime import datetime
@@ -27,16 +27,16 @@ class GitarTakipApp(QMainWindow):
         self.setup_ogrenci_tab()
         self.tabs.addTab(self.tab_ogrenci, "👥 Öğrenci Yönetimi")
 
-        self.finans_widget = FinansWidget(self.db, self.detay_ac_id_ile) 
+        self.finans_widget = FinansWidget(self.db, self.detay_ac_id_ile)
         self.tabs.addTab(self.finans_widget, "📊 Finans Dashboard")
 
         self.tab_ayarlar = QWidget()
         self.setup_ayarlar_tab()
-        self.tabs.addTab(self.tab_ayarlar, "⚙️ Ayarlar") 
-        
+        self.tabs.addTab(self.tab_ayarlar, "⚙️ Ayarlar")
+
         self.tabs.currentChanged.connect(self.sekme_degisti)
         self.listele_ve_guncelle()
-    
+
     def filtreleri_temizle(self):
         self.txt_filtre_isim.clear()
         self.cmb_filtre_enstruman.setCurrentIndex(0)
@@ -55,21 +55,22 @@ class GitarTakipApp(QMainWindow):
         bak_layout = QVBoxLayout(grp_backup)
         bak_layout.setContentsMargins(30, 30, 30, 30)
         bak_layout.setSpacing(15)
-        
+
         lbl_icon = QLabel("💾")
         lbl_icon.setStyleSheet("font-size: 48px; border: none; background: transparent;")
         lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         lbl_info = QLabel("Veritabanı Yedekleme Merkezi")
-        lbl_info.setStyleSheet("font-size: 20px; font-weight: bold; color: #40a7e3; border: none; background: transparent;")
+        lbl_info.setStyleSheet(
+            "font-size: 20px; font-weight: bold; color: #40a7e3; border: none; background: transparent;")
         lbl_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         lbl_desc = QLabel("Verilerinizi güvende tutmak için düzenli aralıklarla yedek almanız önerilir.\n"
                           "Bilgisayar değişikliği veya veri kaybı durumunda 'Yedek Yükle' ile verilerinizi geri getirebilirsiniz.")
         lbl_desc.setStyleSheet("color: #aaa; border: none; font-size: 14px; background: transparent;")
         lbl_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_desc.setWordWrap(True)
-        
+
         btn_yedek_al = QPushButton("📥 Yedek Al (Bilgisayara Kaydet)")
         btn_yedek_al.setStyleSheet("""
             QPushButton { background-color: #2e7d32; padding: 15px; font-size: 15px; border-radius: 8px; font-weight: bold; }
@@ -77,7 +78,7 @@ class GitarTakipApp(QMainWindow):
         """)
         btn_yedek_al.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_yedek_al.clicked.connect(self.yedek_al)
-        
+
         btn_yedek_yukle = QPushButton("📤 Yedek Yükle (Geri Getir)")
         btn_yedek_yukle.setStyleSheet("""
             QPushButton { background-color: #c62828; padding: 15px; font-size: 15px; border-radius: 8px; font-weight: bold; }
@@ -92,7 +93,7 @@ class GitarTakipApp(QMainWindow):
         bak_layout.addSpacing(20)
         bak_layout.addWidget(btn_yedek_al)
         bak_layout.addWidget(btn_yedek_yukle)
-        
+
         layout.addStretch()
         layout.addWidget(grp_backup)
         layout.addStretch()
@@ -106,9 +107,9 @@ class GitarTakipApp(QMainWindow):
 
         tarih = datetime.now().strftime("%Y-%m-%d_%H-%M")
         default_name = f"gitar_takip_yedek_{tarih}.db"
-        
+
         dest, _ = QFileDialog.getSaveFileName(self, "Yedeği Kaydet", default_name, "SQLite Veritabanı (*.db)")
-        
+
         if dest:
             try:
                 shutil.copy2(source, dest)
@@ -119,24 +120,25 @@ class GitarTakipApp(QMainWindow):
     def yedek_yukle(self):
         """Seçilen yedek dosyasını mevcut veritabanının üzerine yazar"""
         source, _ = QFileDialog.getOpenFileName(self, "Yedek Dosyası Seç", "", "SQLite Veritabanı (*.db)")
-        
+
         if source:
             confirm = QMessageBox.warning(self, "Dikkat! Veriler Değişecek",
                                           "Bu işlem şu anki verilerinizi KALICI OLARAK SİLECEK ve seçtiğiniz yedeği yükleyecektir.\n\n"
                                           "Emin misiniz?",
                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            
+
             if confirm == QMessageBox.StandardButton.Yes:
                 try:
                     target = "ders_takip_v2.db"
                     shutil.copy2(source, target)
-                    
+
                     self.listele_ve_guncelle()
                     if hasattr(self, 'finans_widget'):
                         self.finans_widget.ogrenci_listesini_yenile()
                         self.finans_widget.verileri_guncelle()
-                        
-                    QMessageBox.information(self, "Başarılı", "Veritabanı başarıyla geri yüklendi!\nTüm veriler güncellendi.")
+
+                    QMessageBox.information(self, "Başarılı",
+                                            "Veritabanı başarıyla geri yüklendi!\nTüm veriler güncellendi.")
                 except Exception as e:
                     QMessageBox.critical(self, "Hata", f"Geri yükleme sırasında hata oluştu:\n{str(e)}")
 
@@ -148,21 +150,21 @@ class GitarTakipApp(QMainWindow):
         form_frame = QFrame()
         form_frame.setStyleSheet("background-color: #2b2b2b; border-radius: 8px; border: 1px solid #3d3d3d;")
         form_layout = QHBoxLayout(form_frame)
-        
+
         self.input_isim = QLineEdit()
         self.input_isim.setPlaceholderText("Ad Soyad Giriniz...")
         self.input_isim.setMinimumWidth(200)
-        
+
         self.combo_gitar = QComboBox()
         self.combo_gitar.addItems(["Elektro", "Klasik", "Akustik"])
-        
+
         self.combo_mod = QComboBox()
         self.combo_mod.addItems(["Yüzyüze", "Online"])
-        
+
         btn_ekle = QPushButton("💾 Yeni Kayıt")
         btn_ekle.setObjectName("btn_success")
         btn_ekle.clicked.connect(self.ogrenci_ekle)
-        
+
         btn_guncelle = QPushButton("✏️ Düzenle")
         btn_guncelle.setObjectName("btn_warning")
         btn_guncelle.clicked.connect(self.ogrenci_guncelle)
@@ -180,29 +182,29 @@ class GitarTakipApp(QMainWindow):
         btn_ders.setMinimumHeight(55)
         btn_ders.setObjectName("btn_info")
         btn_ders.clicked.connect(lambda: self.islem_yap("Ders"))
-        
-        btn_odeme = QPushButton("💰 ÖDEME ALINDI (+4)")
+
+        btn_ders_ekle = QPushButton("➕ DERS EKLE")
+        btn_ders_ekle.setMinimumHeight(55)
+        btn_ders_ekle.setObjectName("btn_warning")
+        btn_ders_ekle.clicked.connect(lambda: self.islem_yap("DersEkle"))
+
+        btn_odeme = QPushButton("💰 ÖDEME YAP")
         btn_odeme.setMinimumHeight(55)
         btn_odeme.setObjectName("btn_success")
         btn_odeme.clicked.connect(lambda: self.islem_yap("Odeme"))
 
-        btn_manuel = QPushButton("➕ Manuel Ekle (+?)")
-        btn_manuel.setMinimumHeight(55)
-        btn_manuel.setObjectName("btn_warning") 
-        btn_manuel.clicked.connect(lambda: self.islem_yap("Manuel"))
-        
         btn_detay = QPushButton("📜 Detaylar")
         btn_detay.setMinimumHeight(55)
         btn_detay.clicked.connect(self.detay_ac)
-        
+
         btn_sil = QPushButton("🗑️ Sil")
         btn_sil.setMinimumHeight(55)
         btn_sil.setObjectName("btn_danger")
         btn_sil.clicked.connect(self.ogrenci_sil)
 
         action_layout.addWidget(btn_ders, 2)
+        action_layout.addWidget(btn_ders_ekle, 2)
         action_layout.addWidget(btn_odeme, 2)
-        action_layout.addWidget(btn_manuel, 1)
         action_layout.addWidget(btn_detay, 1)
         action_layout.addWidget(btn_sil, 1)
         layout.addLayout(action_layout)
@@ -211,11 +213,11 @@ class GitarTakipApp(QMainWindow):
         filter_frame.setStyleSheet("background-color: #2b2b2b; border-radius: 8px; border: 1px solid #444;")
         filter_layout = QHBoxLayout(filter_frame)
         filter_layout.setContentsMargins(10, 5, 10, 5)
-        
+
         self.txt_filtre_isim = QLineEdit()
         self.txt_filtre_isim.setPlaceholderText("🔍 İsimle Ara...")
         self.txt_filtre_isim.textChanged.connect(self.listele_ve_guncelle)
-        
+
         self.cmb_filtre_enstruman = QComboBox()
         self.cmb_filtre_enstruman.addItem("Tüm Enstrümanlar", "Tümü")
         self.cmb_filtre_enstruman.addItems(["Elektro", "Klasik", "Akustik"])
@@ -232,7 +234,7 @@ class GitarTakipApp(QMainWindow):
         self.cmb_filtre_durum.addItem("Az Kalanlar (1-3)", "Az Kalanlar (1-3)")
         self.cmb_filtre_durum.addItem("Aktif (4+)", "Aktif (4+)")
         self.cmb_filtre_durum.currentIndexChanged.connect(self.listele_ve_guncelle)
-        
+
         btn_filtre_temizle = QPushButton("❌")
         btn_filtre_temizle.setFixedWidth(40)
         btn_filtre_temizle.setToolTip("Filtreleri Temizle")
@@ -243,8 +245,8 @@ class GitarTakipApp(QMainWindow):
         filter_layout.addWidget(self.cmb_filtre_mod, 2)
         filter_layout.addWidget(self.cmb_filtre_durum, 2)
         filter_layout.addWidget(btn_filtre_temizle)
-        
-        layout.addWidget(filter_frame) 
+
+        layout.addWidget(filter_frame)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["ID", "İsim", "Enstrüman", "Mod", "Kalan Ders"])
@@ -257,27 +259,27 @@ class GitarTakipApp(QMainWindow):
 
     def listele_ve_guncelle(self):
         self.tree.clear()
-        
+
         try:
             isim = self.txt_filtre_isim.text()
-            enstruman = self.cmb_filtre_enstruman.currentText() 
+            enstruman = self.cmb_filtre_enstruman.currentText()
             if self.cmb_filtre_enstruman.currentIndex() == 0: enstruman = "Tümü"
-            
+
             mod = self.cmb_filtre_mod.currentText()
             if self.cmb_filtre_mod.currentIndex() == 0: mod = "Tümü"
-            
+
             durum = self.cmb_filtre_durum.currentText()
             if self.cmb_filtre_durum.currentIndex() == 0: durum = "Tümü"
-            
+
             veriler = self.db.ogrencileri_filtreli_getir(isim, enstruman, mod, durum)
-            
+
         except AttributeError:
             veriler = self.db.ogrencileri_getir()
 
         for row in veriler:
             item = QTreeWidgetItem([str(row[0]), row[1], row[2], row[3], str(row[4])])
             kalan = row[4]
-            
+
             if kalan <= 0:
                 item.setForeground(4, QBrush(QColor("#ff5252")))
                 item.setFont(4, QFont("Segoe UI", 9, QFont.Weight.Bold))
@@ -285,9 +287,9 @@ class GitarTakipApp(QMainWindow):
                 item.setForeground(4, QBrush(QColor("#ffb74d")))
             elif kalan >= 4:
                 item.setForeground(4, QBrush(QColor("#69f0ae")))
-            
+
             self.tree.addTopLevelItem(item)
-        
+
         if hasattr(self, 'finans_widget'):
             self.finans_widget.ogrenci_listesini_yenile()
             self.finans_widget.verileri_guncelle()
@@ -322,46 +324,63 @@ class GitarTakipApp(QMainWindow):
         if not item:
             QMessageBox.warning(self, "Uyarı", "Lütfen listeden bir öğrenci seçin!")
             return
-            
+
         uid = int(item.text(0))
         simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
-        
-        tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
-        if not ok1: return
-        
-        ders_sayisi = None
-        if tip == "Manuel":
-            adet, ok_adet = QInputDialog.getInt(self, "Ders Ekle", "Eklenecek Ders Sayısı (Negatif girilebilir):", 1, -100, 100)
-            if not ok_adet: return
-            ders_sayisi = adet
 
+        ders_adedi = 0
         tutar = 0
-        if tip == "Odeme":
-            tutar_str, ok_tutar = QInputDialog.getText(self, "Tutar", "Alınan Miktar (TL):", text="0")
-            if ok_tutar and tutar_str:
-                try:
-                    tutar = float(tutar_str)
-                except ValueError:
-                    tutar = 0
-        
-        not_mesaji, ok2 = QInputDialog.getText(self, "Not", f"{tip} Notu (Opsiyonel):")
-        if not ok2: return 
-        
-        if tip == "Ders":
-            prefix = "Ders İşlendi"
-        elif tip == "Odeme":
-            prefix = "Ödeme Alındı"
-        elif tip == "Manuel":
-            prefix = f"Manuel İşlem ({ders_sayisi} Ders)"
-        else:
-            prefix = "İşlem"
 
-        final_not = f"{prefix} - {not_mesaji}"
-        
-        self.db.islem_yap(uid, tip, tarih, final_not, tutar, ders_adedi=ders_sayisi)
+        if tip == "Ders":
+            # Ders İşlendi: Tarih → Not
+            tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
+            if not ok1: return
+
+            not_mesaji, ok2 = QInputDialog.getText(self, "Not", "Ders Notu (Opsiyonel):")
+            if not ok2: return
+
+            final_not = f"Ders İşlendi - {not_mesaji}"
+
+        elif tip == "DersEkle":
+            # Ders Ekle: Tarih → Ders Sayısı → Not
+            tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
+            if not ok1: return
+
+            adet, ok_adet = QInputDialog.getInt(self, "Ders Ekle", "Eklenecek Ders Sayısı:", 4, 1, 100)
+            if not ok_adet: return
+            ders_adedi = adet
+
+            not_mesaji, ok2 = QInputDialog.getText(self, "Not", "Not (Opsiyonel):")
+            if not ok2: return
+
+            final_not = f"Ders Eklendi (+{ders_adedi}) - {not_mesaji}"
+
+        elif tip == "Odeme":
+            # Ödeme: Tarih → Tutar → Not
+            tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
+            if not ok1: return
+
+            tutar_str, ok_tutar = QInputDialog.getText(self, "Tutar", "Ödeme Tutarı (TL):", text="0")
+            if not ok_tutar: return
+            try:
+                tutar = float(tutar_str)
+            except ValueError:
+                tutar = 0
+
+            not_mesaji, ok2 = QInputDialog.getText(self, "Not", "Ödeme Notu (Opsiyonel):")
+            if not ok2: return
+
+            final_not = f"Ödeme Alındı ({tutar:.0f} TL) - {not_mesaji}"
+
+        self.db.islem_yap(uid, tip, tarih, final_not, tutar, ders_adedi=ders_adedi)
         self.listele_ve_guncelle()
-        
-        QMessageBox.information(self, "Kayıt", f"{tip} işlemi kaydedildi.\nTutar: {tutar} TL")
+
+        if tip == "Ders":
+            QMessageBox.information(self, "Kayıt", "Ders işlendi. (-1)")
+        elif tip == "DersEkle":
+            QMessageBox.information(self, "Kayıt", f"{ders_adedi} ders eklendi.")
+        elif tip == "Odeme":
+            QMessageBox.information(self, "Kayıt", f"Ödeme kaydedildi: {tutar:.0f} TL")
 
     def detay_ac(self):
         item = self.tree.currentItem()
@@ -378,6 +397,7 @@ class GitarTakipApp(QMainWindow):
     def ogrenci_sil(self):
         item = self.tree.currentItem()
         if not item: return
-        if QMessageBox.question(self, "Sil", "Emin misin?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, "Sil", "Emin misin?",
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             self.db.ogrenci_sil(int(item.text(0)))
             self.listele_ve_guncelle()

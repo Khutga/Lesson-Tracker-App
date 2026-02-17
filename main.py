@@ -86,7 +86,7 @@ QHeaderView::section {
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyleSheet(DARK_STYLESHEET)
-    
+
     window = GitarTakipApp()
     window.show()
     sys.exit(app.exec())

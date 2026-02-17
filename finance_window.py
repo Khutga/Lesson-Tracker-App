@@ -9,9 +9,9 @@ class FinansWidget(QWidget):
     def __init__(self, db, detay_callback):
         super().__init__()
         self.db = db
-        self.detay_callback = detay_callback          
+        self.detay_callback = detay_callback
         self.setup_ui()
-        
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
@@ -32,18 +32,19 @@ class FinansWidget(QWidget):
         layout.addLayout(cards_layout)
 
         filter_layout = QHBoxLayout()
-        
+
         self.combo_ogr = QComboBox()
         self.combo_ogr.addItem("Tüm Öğrenciler", "Tümü")
         self.combo_ogr.currentIndexChanged.connect(self.verileri_guncelle)
-        
+
         self.combo_ay = QComboBox()
         self.combo_ay.addItem("Tüm Aylar", "Tümü")
-        aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+        aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım",
+                 "Aralık"]
         for i, ay in enumerate(aylar, 1):
             self.combo_ay.addItem(ay, i)
         simdi = datetime.now()
-        self.combo_ay.setCurrentIndex(simdi.month)  
+        self.combo_ay.setCurrentIndex(simdi.month)
         self.combo_ay.currentIndexChanged.connect(self.verileri_guncelle)
 
         self.combo_yil = QComboBox()
@@ -57,7 +58,7 @@ class FinansWidget(QWidget):
         filter_layout.addWidget(self.combo_ay)
         filter_layout.addWidget(self.combo_yil)
         filter_layout.addStretch()
-        
+
         layout.addLayout(filter_layout)
 
         self.table = QTableWidget()
@@ -67,10 +68,10 @@ class FinansWidget(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.cellDoubleClicked.connect(self.satir_tiklandi)  
-        
+        self.table.cellDoubleClicked.connect(self.satir_tiklandi)
+
         layout.addWidget(self.table)
-        
+
         self.ogrenci_listesini_yenile()
 
     def create_info_card(self, title, color, icon):
@@ -78,24 +79,25 @@ class FinansWidget(QWidget):
         frame.setFixedHeight(120)
         frame.setStyleSheet(f"QFrame {{ background-color: {color}; border-radius: 12px; }}")
         vbox = QVBoxLayout(frame)
-        
+
         top_row = QHBoxLayout()
         lbl_icon = QLabel(icon)
         lbl_icon.setStyleSheet("font-size: 24px; background: transparent;")
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet("font-size: 13px; font-weight: bold; color: rgba(255,255,255,0.8); background: transparent;")
-        
+        lbl_title.setStyleSheet(
+            "font-size: 13px; font-weight: bold; color: rgba(255,255,255,0.8); background: transparent;")
+
         top_row.addWidget(lbl_icon)
         top_row.addWidget(lbl_title)
         top_row.addStretch()
-        
+
         lbl_val = QLabel("0")
         lbl_val.setStyleSheet("font-size: 36px; font-weight: bold; color: white; background: transparent;")
         lbl_val.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         vbox.addLayout(top_row)
         vbox.addWidget(lbl_val)
-        
+
         frame.value_label = lbl_val
         return frame
 
@@ -104,11 +106,11 @@ class FinansWidget(QWidget):
         mevcut_id = self.combo_ogr.currentData()
         self.combo_ogr.clear()
         self.combo_ogr.addItem("Tüm Öğrenciler", "Tümü")
-        
+
         ogrenciler = self.db.ogrenci_isimleri_getir()
         for ogr in ogrenciler:
             self.combo_ogr.addItem(ogr[1], ogr[0])
-            
+
         if mevcut_id:
             index = self.combo_ogr.findData(mevcut_id)
             if index >= 0: self.combo_ogr.setCurrentIndex(index)
@@ -122,21 +124,21 @@ class FinansWidget(QWidget):
         ogr_id = self.combo_ogr.currentData()
         ay = self.combo_ay.currentData()
         yil = self.combo_yil.currentData()
-        
+
         veriler = self.db.odemeleri_filtreli_getir(ogr_id, ay, yil)
-        
+
         self.table.setRowCount(len(veriler))
         for i, row in enumerate(veriler):
             self.table.setItem(i, 0, QTableWidgetItem(str(row[0])))
             self.table.setItem(i, 1, QTableWidgetItem(str(row[1])))
             self.table.setItem(i, 2, QTableWidgetItem(f"{row[2]} ₺"))
             self.table.setItem(i, 3, QTableWidgetItem(str(row[3])))
-            
+
             self.table.item(i, 1).setData(Qt.ItemDataRole.UserRole, row[4])
 
     def satir_tiklandi(self, row, col):
-        item = self.table.item(row, 1) 
+        item = self.table.item(row, 1)
         ogrenci_id = item.data(Qt.ItemDataRole.UserRole)
-        
+
         if ogrenci_id:
-            self.detay_callback(ogrenci_id)  
+            self.detay_callback(ogrenci_id)
