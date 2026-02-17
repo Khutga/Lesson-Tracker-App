@@ -185,6 +185,11 @@ class GitarTakipApp(QMainWindow):
         btn_odeme.setMinimumHeight(55)
         btn_odeme.setObjectName("btn_success")
         btn_odeme.clicked.connect(lambda: self.islem_yap("Odeme"))
+
+        btn_manuel = QPushButton("➕ Manuel Ekle (+?)")
+        btn_manuel.setMinimumHeight(55)
+        btn_manuel.setObjectName("btn_warning") 
+        btn_manuel.clicked.connect(lambda: self.islem_yap("Manuel"))
         
         btn_detay = QPushButton("📜 Detaylar")
         btn_detay.setMinimumHeight(55)
@@ -197,6 +202,7 @@ class GitarTakipApp(QMainWindow):
 
         action_layout.addWidget(btn_ders, 2)
         action_layout.addWidget(btn_odeme, 2)
+        action_layout.addWidget(btn_manuel, 1)
         action_layout.addWidget(btn_detay, 1)
         action_layout.addWidget(btn_sil, 1)
         layout.addLayout(action_layout)
@@ -323,6 +329,12 @@ class GitarTakipApp(QMainWindow):
         tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
         if not ok1: return
         
+        ders_sayisi = None
+        if tip == "Manuel":
+            adet, ok_adet = QInputDialog.getInt(self, "Ders Ekle", "Eklenecek Ders Sayısı (Negatif girilebilir):", 1, -100, 100)
+            if not ok_adet: return
+            ders_sayisi = adet
+
         tutar = 0
         if tip == "Odeme":
             tutar_str, ok_tutar = QInputDialog.getText(self, "Tutar", "Alınan Miktar (TL):", text="0")
@@ -335,9 +347,18 @@ class GitarTakipApp(QMainWindow):
         not_mesaji, ok2 = QInputDialog.getText(self, "Not", f"{tip} Notu (Opsiyonel):")
         if not ok2: return 
         
-        final_not = f"{'Ders İşlendi' if tip == 'Ders' else 'Ödeme Alındı'} - {not_mesaji}"
+        if tip == "Ders":
+            prefix = "Ders İşlendi"
+        elif tip == "Odeme":
+            prefix = "Ödeme Alındı"
+        elif tip == "Manuel":
+            prefix = f"Manuel İşlem ({ders_sayisi} Ders)"
+        else:
+            prefix = "İşlem"
+
+        final_not = f"{prefix} - {not_mesaji}"
         
-        self.db.islem_yap(uid, tip, tarih, final_not, tutar)
+        self.db.islem_yap(uid, tip, tarih, final_not, tutar, ders_adedi=ders_sayisi)
         self.listele_ve_guncelle()
         
         QMessageBox.information(self, "Kayıt", f"{tip} işlemi kaydedildi.\nTutar: {tutar} TL")

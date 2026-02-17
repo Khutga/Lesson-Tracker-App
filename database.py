@@ -72,13 +72,20 @@ class DatabaseManager:
             c.execute("DELETE FROM repertuvar WHERE ogrenci_id=?", (ogrenci_id,))
             conn.commit()
 
-    def islem_yap(self, ogrenci_id, islem_tipi, tarih_saat, not_mesaji, tutar=0):
+    def islem_yap(self, ogrenci_id, islem_tipi, tarih_saat, not_mesaji, tutar=0, ders_adedi=None):
         with self.baglan() as conn:
             c = conn.cursor()
+            
+            degisim = 0
             if islem_tipi == "Ders":
-                c.execute("UPDATE ogrenciler SET kalan_ders = kalan_ders - 1 WHERE id=?", (ogrenci_id,))
+                degisim = -1
             elif islem_tipi == "Odeme":
-                c.execute("UPDATE ogrenciler SET kalan_ders = kalan_ders + 4 WHERE id=?", (ogrenci_id,))
+                degisim = 4  
+            elif islem_tipi == "Manuel" and ders_adedi is not None:
+                degisim = ders_adedi  
+            
+            if degisim != 0:
+                c.execute("UPDATE ogrenciler SET kalan_ders = kalan_ders + ? WHERE id=?", (degisim, ogrenci_id))
             
             c.execute("INSERT INTO gecmis (ogrenci_id, islem_tipi, tarih, notlar, tutar) VALUES (?, ?, ?, ?, ?)",
                       (ogrenci_id, islem_tipi, tarih_saat, not_mesaji, tutar))
