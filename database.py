@@ -91,6 +91,10 @@ class DatabaseManager:
                 c.execute("ALTER TABLE gecmis ADD COLUMN ders_adedi INTEGER DEFAULT 0")
             except:
                 pass
+            try:
+                c.execute("ALTER TABLE ogrenciler ADD COLUMN kayit_durumu TEXT DEFAULT 'Aktif'")
+            except:
+                pass
             conn.commit()
 
     def ogrenci_ekle(self, isim, tur, mod):
@@ -133,20 +137,89 @@ class DatabaseManager:
             c.execute("DELETE FROM repertuvar WHERE ogrenci_id=?", (ogrenci_id,))
             conn.commit()
 
+    def ogrenci_kayit_durumu_degistir(self, ogrenci_id, yeni_durum):
+        with self.baglan() as conn:
+            c = conn.cursor()
+            c.execute("UPDATE ogrenciler SET kayit_durumu=? WHERE id=?", (yeni_durum, ogrenci_id))
+            conn.commit()
+
+    def istatistik_getir(self):
+        simdi = datetime.now()
+        bu_ay = simdi.strftime(".%m.%Y")
+
+        with self.baglan() as conn:
+            c = conn.cursor()
+            # Yalnızca "Aktif" olan ve kalan dersi olan öğrencileri sayalım
+            c.execute(
+                "SELECT COUNT(*) FROM ogrenciler WHERE kalan_ders > 0 AND IFNULL(kayit_durumu, 'Aktif') = 'Aktif'")
+            aktif_ogrenci = c.fetchone()[0]
+
+            c.execute("SELECT COUNT(*) FROM gecmis WHERE islem_tipi='Ders' AND tarih LIKE ?", ('%' + bu_ay + '%',))
+            aylik_ders = c.fetchone()[0]
+
+            c.execute("SELECT SUM(tutar) FROM gecmis WHERE islem_tipi='Odeme' AND tarih LIKE ?", ('%' + bu_ay + '%',))
+            result = c.fetchone()[0]
+            aylik_ciro = result if result else 0
+
+            return aktif_ogrenci, aylik_ders, aylik_ciro
+
+    def ogrencileri_filtreli_getir(self, isim_kriteri="", enstruman="Tümü", mod="Tümü", ders_durumu="Tümü",
+                                   kayit_durumu="Aktif Öğrenciler"):
+        """Ana sayfa filtrelemesi için dinamik sorgu oluşturur"""
+        with self.baglan() as conn:
+            c = conn.cursor()
+            query = "SELECT * FROM ogrenciler WHERE 1=1"
+            params = []
+
+            if isim_kriteri:
+                query += " AND isim LIKE ?"
+                params.append(f"%{isim_kriteri}%")
+
+            if enstruman and enstruman != "Tümü":
+                query += " AND tur = ?"
+                params.append(enstruman)
+
+            if mod and mod != "Tümü":
+                query += " AND mod = ?"
+                params.append(mod)
+
+            if ders_durumu != "Tümü":
+                if ders_durumu == "Borcu Olanlar (<=0)":
+                    query += " AND kalan_ders <= 0"
+                elif ders_durumu == "Az Kalanlar (1-3)":
+                    query += " AND kalan_ders > 0 AND kalan_ders < 4"
+                elif ders_durumu == "Aktif (4+)":
+                    query += " AND kalan_ders >= 4"
+
+            # Aktif/Pasif Filtrelemesi
+            if kayit_durumu == "Aktif Öğrenciler":
+                query += " AND IFNULL(kayit_durumu, 'Aktif') = 'Aktif'"
+            elif kayit_durumu == "Pasif Öğrenciler":
+                query += " AND kayit_durumu = 'Pasif'"
+
+            query += " ORDER BY id ASC"
+
+            c.execute(query, params)
+            return c.fetchall()
+
     def islem_yap(self, ogrenci_id, islem_tipi, tarih_saat, not_mesaji, tutar=0, ders_adedi=0):
         with self.baglan() as conn:
             c = conn.cursor()
 
             degisim = 0
+            # Adedi ondalıklı sayıya çeviriyoruz
+            ders_adedi = float(ders_adedi) if ders_adedi else 0.0
+
             if islem_tipi == "Ders":
-                degisim = -1
-                ders_adedi = -1
+                # Eğer adet girilmişse onu negatif yap, yoksa varsayılan -1 kullan
+                degisim = -abs(ders_adedi) if ders_adedi != 0 else -1.0
+                ders_adedi = degisim
             elif islem_tipi == "Odeme":
                 # Ödeme sadece para kaydeder, ders eklemez
                 degisim = 0
                 ders_adedi = 0
             elif islem_tipi == "DersEkle":
-                degisim = ders_adedi  # Kullanıcının girdiği sayı
+                degisim = ders_adedi  # Kullanıcının girdiği ondalıklı sayı
 
             if degisim != 0:
                 c.execute("UPDATE ogrenciler SET kalan_ders = kalan_ders + ? WHERE id=?", (degisim, ogrenci_id))
@@ -155,6 +228,7 @@ class DatabaseManager:
                 "INSERT INTO gecmis (ogrenci_id, islem_tipi, tarih, notlar, tutar, ders_adedi) VALUES (?, ?, ?, ?, ?, ?)",
                 (ogrenci_id, islem_tipi, tarih_saat, not_mesaji, tutar, ders_adedi))
             conn.commit()
+
 
     def islem_sil(self, islem_id):
         with self.baglan() as conn:

@@ -42,6 +42,7 @@ class GitarTakipApp(QMainWindow):
         self.cmb_filtre_enstruman.setCurrentIndex(0)
         self.cmb_filtre_mod.setCurrentIndex(0)
         self.cmb_filtre_durum.setCurrentIndex(0)
+        self.cmb_filtre_kayit.setCurrentIndex(0) # Temizliğe eklendi
         self.listele_ve_guncelle()
 
     def setup_ayarlar_tab(self):
@@ -193,6 +194,11 @@ class GitarTakipApp(QMainWindow):
         btn_odeme.setObjectName("btn_success")
         btn_odeme.clicked.connect(lambda: self.islem_yap("Odeme"))
 
+        # AKTİF/PASİF BUTONU BURAYA EKLENİYOR:
+        self.btn_durum_degistir = QPushButton("🔄 Durum Değiştir")
+        self.btn_durum_degistir.setMinimumHeight(55)
+        self.btn_durum_degistir.clicked.connect(self.kayit_durumu_degistir)
+
         btn_detay = QPushButton("📜 Detaylar")
         btn_detay.setMinimumHeight(55)
         btn_detay.clicked.connect(self.detay_ac)
@@ -205,10 +211,12 @@ class GitarTakipApp(QMainWindow):
         action_layout.addWidget(btn_ders, 2)
         action_layout.addWidget(btn_ders_ekle, 2)
         action_layout.addWidget(btn_odeme, 2)
+        action_layout.addWidget(self.btn_durum_degistir, 1)  # Buton eklendi
         action_layout.addWidget(btn_detay, 1)
         action_layout.addWidget(btn_sil, 1)
         layout.addLayout(action_layout)
 
+        # Filtreler Kısmı:
         filter_frame = QFrame()
         filter_frame.setStyleSheet("background-color: #2b2b2b; border-radius: 8px; border: 1px solid #444;")
         filter_layout = QHBoxLayout(filter_frame)
@@ -235,6 +243,11 @@ class GitarTakipApp(QMainWindow):
         self.cmb_filtre_durum.addItem("Aktif (4+)", "Aktif (4+)")
         self.cmb_filtre_durum.currentIndexChanged.connect(self.listele_ve_guncelle)
 
+        # YENİ KAYIT DURUMU FİLTRESİ
+        self.cmb_filtre_kayit = QComboBox()
+        self.cmb_filtre_kayit.addItems(["Aktif Öğrenciler", "Pasif Öğrenciler", "Tümü"])
+        self.cmb_filtre_kayit.currentIndexChanged.connect(self.listele_ve_guncelle)
+
         btn_filtre_temizle = QPushButton("❌")
         btn_filtre_temizle.setFixedWidth(40)
         btn_filtre_temizle.setToolTip("Filtreleri Temizle")
@@ -244,12 +257,14 @@ class GitarTakipApp(QMainWindow):
         filter_layout.addWidget(self.cmb_filtre_enstruman, 2)
         filter_layout.addWidget(self.cmb_filtre_mod, 2)
         filter_layout.addWidget(self.cmb_filtre_durum, 2)
+        filter_layout.addWidget(self.cmb_filtre_kayit, 2)  # Eklendi
         filter_layout.addWidget(btn_filtre_temizle)
 
         layout.addWidget(filter_frame)
 
+        # Tabloya yeni sütun ekliyoruz
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["ID", "İsim", "Enstrüman", "Mod", "Kalan Ders"])
+        self.tree.setHeaderLabels(["ID", "İsim", "Enstrüman", "Mod", "Kalan Ders", "Kayıt Durumu"])
         self.tree.header().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.setAlternatingRowColors(True)
@@ -271,32 +286,64 @@ class GitarTakipApp(QMainWindow):
             durum = self.cmb_filtre_durum.currentText()
             if self.cmb_filtre_durum.currentIndex() == 0: durum = "Tümü"
 
-            veriler = self.db.ogrencileri_filtreli_getir(isim, enstruman, mod, durum)
+            kayit = self.cmb_filtre_kayit.currentText()
+
+            veriler = self.db.ogrencileri_filtreli_getir(isim, enstruman, mod, durum, kayit)
 
         except AttributeError:
             veriler = self.db.ogrencileri_getir()
 
         for row in veriler:
-            item = QTreeWidgetItem([str(row[0]), row[1], row[2], row[3], str(row[4])])
-            kalan = row[4]
+            kalan = float(row[4]) if row[4] is not None else 0
+            kalan_str = f"{kalan:g}"
 
-            if kalan <= 0:
-                item.setForeground(4, QBrush(QColor("#ff5252")))
-                item.setFont(4, QFont("Segoe UI", 9, QFont.Weight.Bold))
-            elif kalan == 1:
-                item.setForeground(4, QBrush(QColor("#ffb74d")))
-            elif kalan >= 4:
-                item.setForeground(4, QBrush(QColor("#69f0ae")))
+            # Veritabanında boş olan kayıtlar varsayılan olarak "Aktif" kabul ediliyor
+            kayit_durumu = row[8] if len(row) > 8 and row[8] else "Aktif"
+
+            item = QTreeWidgetItem([str(row[0]), row[1], row[2], row[3], kalan_str, kayit_durumu])
+
+            # Pasif öğrencilerin dikkat dağıtmaması için gri yapıyoruz
+            if kayit_durumu == "Pasif":
+                for i in range(6):
+                    item.setForeground(i, QBrush(QColor("#757575")))
+                item.setFont(5, QFont("Segoe UI", 9, QFont.Weight.Bold))
+            else:
+                if kalan <= 0:
+                    item.setForeground(4, QBrush(QColor("#ff5252")))
+                    item.setFont(4, QFont("Segoe UI", 9, QFont.Weight.Bold))
+                elif kalan < 4:
+                    item.setForeground(4, QBrush(QColor("#ffb74d")))
+                elif kalan >= 4:
+                    item.setForeground(4, QBrush(QColor("#69f0ae")))
 
             self.tree.addTopLevelItem(item)
 
         if hasattr(self, 'finans_widget'):
             self.finans_widget.ogrenci_listesini_yenile()
             self.finans_widget.verileri_guncelle()
-
     def sekme_degisti(self, index):
         if index == 1:
             self.finans_widget.verileri_guncelle()
+
+    def kayit_durumu_degistir(self):
+        """Seçilen öğrenciyi Aktif/Pasif olarak değiştirir"""
+        item = self.tree.currentItem()
+        if not item:
+            QMessageBox.warning(self, "Uyarı", "Lütfen listeden bir öğrenci seçin!")
+            return
+
+        uid = int(item.text(0))
+        isim = item.text(1)
+        mevcut_durum = item.text(5)
+        yeni_durum = "Pasif" if mevcut_durum == "Aktif" else "Aktif"
+
+        cevap = QMessageBox.question(self, "Durum Değiştir",
+                                     f"'{isim}' adlı öğrencinin durumunu '{yeni_durum}' olarak değiştirmek istiyor musunuz?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if cevap == QMessageBox.StandardButton.Yes:
+            self.db.ogrenci_kayit_durumu_degistir(uid, yeni_durum)
+            self.listele_ve_guncelle()
 
     def satir_secildi(self, item, col):
         self.input_isim.setText(item.text(1))
@@ -328,35 +375,40 @@ class GitarTakipApp(QMainWindow):
         uid = int(item.text(0))
         simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
 
-        ders_adedi = 0
+        ders_adedi = 0.0
         tutar = 0
 
         if tip == "Ders":
-            # Ders İşlendi: Tarih → Not
             tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
             if not ok1: return
+
+            # getInt yerine getDouble kullanarak 0.5'lik artışlara izin veriyoruz
+            adet, ok_adet = QInputDialog.getDouble(self, "Ders İşle", "İşlenen Ders Sayısı (Örn: 1, 1.5, 2):", 1.0, 0.5, 100.0, 1)
+            if not ok_adet: return
+            ders_adedi = adet
 
             not_mesaji, ok2 = QInputDialog.getText(self, "Not", "Ders Notu (Opsiyonel):")
             if not ok2: return
 
-            final_not = f"Ders İşlendi - {not_mesaji}"
+            ek_not = f" - {not_mesaji}" if not_mesaji else ""
+            final_not = f"Ders İşlendi (-{ders_adedi:g}){ek_not}"
 
         elif tip == "DersEkle":
-            # Ders Ekle: Tarih → Ders Sayısı → Not
             tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
             if not ok1: return
 
-            adet, ok_adet = QInputDialog.getInt(self, "Ders Ekle", "Eklenecek Ders Sayısı:", 4, 1, 100)
+            # Ekleme işlemi için ondalıklı pop-up
+            adet, ok_adet = QInputDialog.getDouble(self, "Ders Ekle", "Eklenecek Ders Sayısı (Örn: 1.5, 2 vb):", 4.0, 0.5, 100.0, 1)
             if not ok_adet: return
             ders_adedi = adet
 
             not_mesaji, ok2 = QInputDialog.getText(self, "Not", "Not (Opsiyonel):")
             if not ok2: return
 
-            final_not = f"Ders Eklendi (+{ders_adedi}) - {not_mesaji}"
+            ek_not = f" - {not_mesaji}" if not_mesaji else ""
+            final_not = f"Ders Eklendi (+{ders_adedi:g}){ek_not}"
 
         elif tip == "Odeme":
-            # Ödeme: Tarih → Tutar → Not
             tarih, ok1 = QInputDialog.getText(self, "Tarih", "İşlem Tarihi:", text=simdi)
             if not ok1: return
 
@@ -375,13 +427,13 @@ class GitarTakipApp(QMainWindow):
         self.db.islem_yap(uid, tip, tarih, final_not, tutar, ders_adedi=ders_adedi)
         self.listele_ve_guncelle()
 
+        # Bilgi mesajlarında göz yormayan (:g) temiz format kullanımı
         if tip == "Ders":
-            QMessageBox.information(self, "Kayıt", "Ders işlendi. (-1)")
+            QMessageBox.information(self, "Kayıt", f"{ders_adedi:g} ders işlendi.")
         elif tip == "DersEkle":
-            QMessageBox.information(self, "Kayıt", f"{ders_adedi} ders eklendi.")
+            QMessageBox.information(self, "Kayıt", f"{ders_adedi:g} ders eklendi.")
         elif tip == "Odeme":
             QMessageBox.information(self, "Kayıt", f"Ödeme kaydedildi: {tutar:.0f} TL")
-
     def detay_ac(self):
         item = self.tree.currentItem()
         if not item: return
