@@ -229,7 +229,6 @@ class DatabaseManager:
                 (ogrenci_id, islem_tipi, tarih_saat, not_mesaji, tutar, ders_adedi))
             conn.commit()
 
-
     def islem_sil(self, islem_id):
         with self.baglan() as conn:
             c = conn.cursor()
@@ -285,24 +284,6 @@ class DatabaseManager:
             c.execute("UPDATE repertuvar SET durum=? WHERE id=?", (yeni_durum, rep_id))
             conn.commit()
 
-    def istatistik_getir(self):
-        simdi = datetime.now()
-        bu_ay = simdi.strftime(".%m.%Y")
-
-        with self.baglan() as conn:
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) FROM ogrenciler WHERE kalan_ders > 0")
-            aktif_ogrenci = c.fetchone()[0]
-
-            c.execute("SELECT COUNT(*) FROM gecmis WHERE islem_tipi='Ders' AND tarih LIKE ?", ('%' + bu_ay + '%',))
-            aylik_ders = c.fetchone()[0]
-
-            c.execute("SELECT SUM(tutar) FROM gecmis WHERE islem_tipi='Odeme' AND tarih LIKE ?", ('%' + bu_ay + '%',))
-            result = c.fetchone()[0]
-            aylik_ciro = result if result else 0
-
-            return aktif_ogrenci, aylik_ders, aylik_ciro
-
     def odemeleri_filtreli_getir(self, ogrenci_id=None, ay=None, yil=None):
         """Finans sayfasındaki gelişmiş filtreleme sorgusu"""
         with self.baglan() as conn:
@@ -329,38 +310,6 @@ class DatabaseManager:
                 params.append(f"%{yil}%")
 
             query += " ORDER BY g.id DESC"
-
-            c.execute(query, params)
-            return c.fetchall()
-
-    def ogrencileri_filtreli_getir(self, isim_kriteri="", enstruman="Tümü", mod="Tümü", ders_durumu="Tümü"):
-        """Ana sayfa filtrelemesi için dinamik sorgu oluşturur"""
-        with self.baglan() as conn:
-            c = conn.cursor()
-            query = "SELECT * FROM ogrenciler WHERE 1=1"
-            params = []
-
-            if isim_kriteri:
-                query += " AND isim LIKE ?"
-                params.append(f"%{isim_kriteri}%")
-
-            if enstruman and enstruman != "Tümü":
-                query += " AND tur = ?"
-                params.append(enstruman)
-
-            if mod and mod != "Tümü":
-                query += " AND mod = ?"
-                params.append(mod)
-
-            if ders_durumu != "Tümü":
-                if ders_durumu == "Borcu Olanlar (<=0)":
-                    query += " AND kalan_ders <= 0"
-                elif ders_durumu == "Az Kalanlar (1-3)":
-                    query += " AND kalan_ders > 0 AND kalan_ders < 4"
-                elif ders_durumu == "Aktif (4+)":
-                    query += " AND kalan_ders >= 4"
-
-            query += " ORDER BY id ASC"
 
             c.execute(query, params)
             return c.fetchall()
